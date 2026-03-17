@@ -1,1 +1,924 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TriAI — Claude × GPT-4o × Gemini</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#09090B;--bg2:#111114;--bg3:#18181C;--bg4:#222228;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#EDEDF0;--text2:#9898A8;--text3:#5A5A6A;
+  --claude:#E8598A;--gpt:#1DC27E;--gemini:#4A9EFF;
+  --synth:#F5A31A;--synth-bg:rgba(245,163,26,0.08);
+  --r:10px;--rl:14px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden;}
 
+/* ===== LOCK ===== */
+#lock-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;}
+.lock-box{width:300px;text-align:center;}
+.lock-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:30px;letter-spacing:-1px;background:linear-gradient(135deg,#E8598A,#4A9EFF,#1DC27E);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;}
+.lock-sub{font-size:11px;color:var(--text3);margin-bottom:28px;}
+.lock-icon{font-size:32px;margin-bottom:16px;display:block;}
+.lock-label{font-size:12px;color:var(--text3);margin-bottom:8px;text-align:left;}
+.lock-inp{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;text-align:center;letter-spacing:4px;margin-bottom:10px;transition:border-color .15s;}
+.lock-inp:focus{border-color:rgba(255,255,255,.3);}
+.lock-inp.shake{animation:shake .3s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.lock-btn{width:100%;padding:11px;border-radius:var(--r);background:linear-gradient(135deg,var(--claude),var(--gemini));border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s;}
+.lock-btn:hover{opacity:.85;}
+.lock-err{font-size:12px;color:var(--claude);margin-top:8px;min-height:18px;}
+
+/* ===== SIDEBAR ===== */
+.sidebar{width:240px;min-width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;}
+.sb-logo{padding:20px 20px 14px;border-bottom:1px solid var(--border);}
+.logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;letter-spacing:-.5px;background:linear-gradient(135deg,#E8598A,#4A9EFF,#1DC27E);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.logo-sub{font-size:10px;color:var(--text3);margin-top:3px;letter-spacing:.5px;}
+.sb-actions{padding:12px;border-bottom:1px solid var(--border);}
+.btn-new{width:100%;padding:9px 14px;background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .15s;}
+.btn-new:hover{background:rgba(255,255,255,.09);}
+.btn-new-icon{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,var(--claude),var(--gemini));display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.sb-folders{padding:12px 12px 6px;flex:1;overflow-y:auto;}
+.sb-folders::-webkit-scrollbar{width:3px;}
+.sb-folders::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.sec-label{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:0 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
+.sec-add{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;transition:color .15s;}
+.sec-add:hover{color:var(--text2);}
+.folder-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);transition:all .12s;margin-bottom:2px;position:relative;}
+.folder-item:hover{background:var(--bg3);color:var(--text);}
+.folder-item.active{background:var(--bg4);color:var(--text);}
+.f-icon{font-size:14px;flex-shrink:0;}
+.f-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.f-count{font-size:10px;background:var(--bg4);padding:2px 6px;border-radius:10px;color:var(--text3);}
+.f-del{display:none;background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 6px;font-size:11px;border-radius:4px;transition:all .12s;}
+.f-del:hover{background:rgba(255,80,80,.12);color:#FF6B6B;}
+.folder-item:hover .f-del{display:block;}
+.sb-bottom{padding:12px;border-top:1px solid var(--border);}
+.settings-btn{width:100%;padding:9px 12px;background:none;border:none;border-radius:var(--r);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .12s;}
+.settings-btn:hover,.settings-btn.active{background:var(--bg3);color:var(--text);}
+
+/* ===== MAIN ===== */
+.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;min-width:0;}
+
+/* ===== CHAT ===== */
+#chat-view{display:flex;flex-direction:column;height:100%;}
+.chat-header{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;}
+.chat-header h2{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+.ai-badges{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;}
+.badge{font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;border:1px solid;position:relative;cursor:default;}
+.badge-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:10px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;font-family:monospace;color:var(--text2);}
+.badge:hover .badge-tooltip{opacity:1;}
+.bc{color:var(--claude);border-color:var(--claude);background:rgba(232,89,138,.1);}
+.bg2b{color:var(--gpt);border-color:var(--gpt);background:rgba(29,194,126,.1);}
+.bge{color:var(--gemini);border-color:var(--gemini);background:rgba(74,158,255,.1);}
+#key-warn{font-size:11px;color:#FF6B6B;}
+.chat-scroll{flex:1;overflow-y:auto;padding:24px;}
+.chat-scroll::-webkit-scrollbar{width:4px;}
+.chat-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* empty */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;gap:14px;}
+.empty-icon{font-size:48px;opacity:.15;}
+.empty-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--text2);}
+.empty-desc{font-size:13px;color:var(--text3);max-width:300px;line-height:1.6;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px;}
+.chip{padding:7px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .12s;}
+.chip:hover{background:var(--bg4);border-color:var(--border2);color:var(--text);}
+
+/* conversation */
+.conv-entry{margin-bottom:28px;}
+.conv-q{display:flex;justify-content:flex-end;margin-bottom:14px;}
+.conv-q-bubble{background:var(--bg4);border:1px solid var(--border2);border-radius:14px 14px 4px 14px;padding:11px 16px;max-width:72%;font-size:14px;line-height:1.6;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;}
+.ai-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.ac-header{padding:9px 13px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border);}
+.ac-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ac-name{font-size:12px;font-weight:500;flex:1;}
+.ac-model-tag{font-size:10px;color:var(--text3);font-family:monospace;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ac-body{padding:12px;font-size:12.5px;line-height:1.75;color:var(--text2);min-height:80px;white-space:pre-wrap;}
+.ac-body.thinking{display:flex;align-items:center;min-height:60px;}
+.dots{display:flex;gap:5px;}
+.dots span{width:6px;height:6px;border-radius:50%;background:var(--text3);animation:dp 1.4s infinite;}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes dp{0%,60%,100%{transform:scale(.8);opacity:.4;}30%{transform:scale(1.1);opacity:1;}}
+.ac-err{color:#FF6B6B;font-size:11.5px;}
+.synth-card{background:var(--bg3);border:1px solid rgba(245,163,26,.3);border-radius:var(--rl);overflow:hidden;display:none;}
+.synth-head{padding:9px 14px;display:flex;align-items:center;gap:7px;border-bottom:1px solid rgba(245,163,26,.15);background:var(--synth-bg);}
+.synth-star{color:var(--synth);}
+.synth-label{font-size:12px;font-weight:500;color:var(--synth);}
+.synth-body{padding:14px;font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap;}
+.conv-actions{display:none;justify-content:flex-end;gap:7px;margin-top:9px;}
+.act-btn{padding:5px 12px;font-size:11px;font-family:'DM Sans',sans-serif;border-radius:20px;border:1px solid var(--border2);background:none;color:var(--text3);cursor:pointer;transition:all .12s;}
+.act-btn:hover{background:var(--bg4);color:var(--text2);}
+
+/* input */
+.chat-input-area{padding:14px 24px 18px;border-top:1px solid var(--border);flex-shrink:0;}
+.input-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rl);padding:11px 14px;display:flex;gap:10px;align-items:flex-end;transition:border-color .15s;}
+.input-box:focus-within{border-color:rgba(255,255,255,.22);}
+.input-box textarea{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;resize:none;min-height:24px;max-height:120px;}
+.input-box textarea::placeholder{color:var(--text3);}
+.send-btn{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--claude),var(--gemini));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s,transform .1s;}
+.send-btn:hover{opacity:.82;}
+.send-btn:active{transform:scale(.93);}
+.send-btn:disabled{opacity:.25;cursor:not-allowed;}
+.send-btn svg{width:16px;height:16px;fill:#fff;}
+.input-hint{text-align:center;font-size:11px;color:var(--text3);margin-top:7px;}
+
+/* ===== FOLDER VIEW ===== */
+#folder-view{display:none;flex-direction:column;height:100%;}
+#folder-view.active{display:flex;}
+.fv-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;}
+.fv-header h2{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.fv-meta{font-size:12px;color:var(--text3);margin-left:auto;}
+.fv-scroll{flex:1;overflow-y:auto;padding:20px 24px;}
+.fv-scroll::-webkit-scrollbar{width:4px;}
+.fv-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.saved-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:16px;margin-bottom:10px;cursor:pointer;transition:all .12s;}
+.saved-card:hover{border-color:var(--border2);background:var(--bg4);}
+.sc-q{font-size:14px;font-weight:500;margin-bottom:7px;}
+.sc-prev{font-size:12px;color:var(--text3);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.sc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;}
+.sc-date{font-size:11px;color:var(--text3);}
+.sc-badges{display:flex;gap:4px;}
+.sc-del{background:none;border:none;color:var(--text3);cursor:pointer;padding:3px 7px;border-radius:5px;font-size:11px;transition:all .12s;}
+.sc-del:hover{background:rgba(255,80,80,.1);color:#FF6B6B;}
+
+/* ===== SETTINGS ===== */
+#settings-view{display:none;flex-direction:column;height:100%;}
+#settings-view.active{display:flex;}
+.sv-header{padding:20px 24px;border-bottom:1px solid var(--border);}
+.sv-header h2{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.sv-header p{font-size:12px;color:var(--text3);margin-top:5px;line-height:1.5;}
+.sv-scroll{flex:1;overflow-y:auto;padding:24px;}
+.sv-scroll::-webkit-scrollbar{width:4px;}
+.sv-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.settings-block{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:16px;}
+.sb-head{padding:13px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.sb-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.sb-name{font-size:14px;font-weight:500;flex:1;}
+.status-pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;}
+.st-ok{background:rgba(29,194,126,.15);color:#1DC27E;}
+.st-no{background:rgba(255,255,255,.06);color:var(--text3);}
+.sb-body{padding:16px 17px;}
+.key-row{display:flex;gap:8px;margin-bottom:10px;}
+.key-inp{flex:1;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:9px 12px;color:var(--text);font-family:monospace;font-size:12px;outline:none;transition:border-color .15s;}
+.key-inp:focus{border-color:rgba(255,255,255,.25);}
+.save-btn{padding:9px 15px;border-radius:var(--r);border:1px solid var(--border2);background:rgba(255,255,255,.06);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.save-btn:hover{background:rgba(255,255,255,.1);}
+.model-row{font-size:11px;color:var(--text3);margin-bottom:10px;min-height:18px;display:flex;align-items:center;gap:6px;}
+.model-chip{font-family:monospace;font-size:11px;background:var(--bg4);border:1px solid var(--border);padding:2px 8px;border-radius:6px;color:var(--text2);}
+.guide{background:var(--bg4);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+.g-title{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.g-step{display:flex;gap:9px;margin-bottom:8px;align-items:flex-start;}
+.g-step:last-child{margin-bottom:0;}
+.g-num{width:18px;height:18px;border-radius:50%;background:var(--border2);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text2);margin-top:1px;}
+.g-text{font-size:12px;color:var(--text2);line-height:1.5;}
+.g-text a{color:var(--gemini);text-decoration:none;}
+.g-text a:hover{text-decoration:underline;}
+.free-tag{display:inline-block;font-size:10px;padding:1px 7px;background:rgba(29,194,126,.15);color:#1DC27E;border-radius:10px;font-weight:500;margin-left:6px;}
+/* pw extra */
+.pw-hint{font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6;}
+.pw-row{display:flex;gap:8px;margin-bottom:10px;}
+.pw-actions{display:flex;gap:8px;}
+.danger-btn{padding:9px 15px;border-radius:var(--r);border:1px solid rgba(255,80,80,.3);background:none;color:#FF6B6B;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .12s;}
+.danger-btn:hover{background:rgba(255,80,80,.08);}
+
+/* ===== MODALS ===== */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:24px;width:90%;max-width:420px;}
+.modal h3{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:8px;}
+.modal p{font-size:13px;color:var(--text3);margin-bottom:14px;line-height:1.5;}
+.modal input{width:100%;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:14px;transition:border-color .15s;}
+.modal input:focus{border-color:rgba(255,255,255,.25);}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.mbtn{padding:8px 18px;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;}
+.mbtn.cancel{background:none;border:1px solid var(--border2);color:var(--text2);}
+.mbtn.cancel:hover{background:var(--bg3);}
+.mbtn.ok{background:linear-gradient(135deg,var(--claude),var(--gemini));border:none;color:#fff;}
+.mbtn.ok:hover{opacity:.85;}
+.fdd-item{padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .12s;}
+.fdd-item:hover{background:var(--bg4);color:var(--text);}
+.fdd-count{margin-left:auto;font-size:11px;color:var(--text3);}
+
+/* detail */
+.det-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.det-overlay.open{display:flex;}
+.det-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);width:95%;max-width:820px;max-height:84vh;overflow-y:auto;padding:24px;}
+.det-box::-webkit-scrollbar{width:4px;}
+.det-box::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.det-close{float:right;background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;margin:-4px 0 0 8px;}
+.det-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:16px;}
+.det-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;}
+
+/* toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:8px 20px;font-size:12px;color:var(--text);z-index:999;transition:transform .25s;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+@media(max-width:680px){
+  .sidebar{width:60px;min-width:60px;}
+  .sb-logo,.sb-actions .btn-new span:last-child,.f-name,.f-count,.f-del,.sb-bottom .settings-btn span{display:none;}
+  .btn-new{justify-content:center;padding:9px;}
+  .folder-item{justify-content:center;padding:9px 0;}
+  .settings-btn{justify-content:center;}
+  .grid3,.det-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo">TriAI</div>
+    <div class="lock-sub">Claude × GPT-4o × Gemini</div>
+    <span class="lock-icon">🔒</span>
+    <div class="lock-label">パスワードを入力</div>
+    <input class="lock-inp" id="lock-inp" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')unlock()">
+    <button class="lock-btn" onclick="unlock()">ロック解除</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="logo-text">TriAI</div>
+    <div class="logo-sub">Claude × GPT-4o × Gemini</div>
+  </div>
+  <div class="sb-actions">
+    <button class="btn-new" onclick="showChat()">
+      <span class="btn-new-icon">✦</span><span>新しいチャット</span>
+    </button>
+  </div>
+  <div class="sb-folders">
+    <div class="sec-label">
+      <span>フォルダ</span>
+      <button class="sec-add" onclick="openNewFolder()" title="フォルダを追加">＋</button>
+    </div>
+    <div id="folders-list"></div>
+  </div>
+  <div class="sb-bottom">
+    <button class="settings-btn" id="settings-btn" onclick="showSettings()">
+      <span>⚙</span><span>設定 / APIキー</span>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- CHAT VIEW -->
+  <div id="chat-view">
+    <div class="chat-header">
+      <h2>TriAI Chat</h2>
+      <div class="ai-badges">
+        <span class="badge bc" id="badge-claude">Claude<span class="badge-tooltip" id="bt-claude">—</span></span>
+        <span class="badge bg2b" id="badge-gpt">GPT-4o<span class="badge-tooltip" id="bt-gpt">—</span></span>
+        <span class="badge bge" id="badge-gemini">Gemini<span class="badge-tooltip" id="bt-gemini">—</span></span>
+      </div>
+      <span id="key-warn"></span>
+    </div>
+    <div class="chat-scroll" id="chat-scroll">
+      <div class="empty" id="empty-state">
+        <div class="empty-icon">⚡</div>
+        <div class="empty-title">3つのAIに同時に聞く</div>
+        <div class="empty-desc">Claude・GPT-4o・Gemini が一斉に回答。最後に最適解を合成します。</div>
+        <div class="chips">
+          <span class="chip" onclick="useEx(this)">Rustを学ぶべきか？</span>
+          <span class="chip" onclick="useEx(this)">副業を始める最良の方法は？</span>
+          <span class="chip" onclick="useEx(this)">量子コンピュータを簡単に説明して</span>
+          <span class="chip" onclick="useEx(this)">React vs Vue どっちがいい？</span>
+          <span class="chip" onclick="useEx(this)">健康的な食事習慣のコツ</span>
+          <span class="chip" onclick="useEx(this)">TypeScriptを使うメリットは？</span>
+        </div>
+      </div>
+      <div id="conversations"></div>
+    </div>
+    <div class="chat-input-area">
+      <div class="input-box">
+        <textarea id="main-input" rows="1" placeholder="3つのAIに質問する..." onkeydown="handleKey(event)" oninput="resize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="send()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Enter で送信 / Shift+Enter で改行</div>
+    </div>
+  </div>
+
+  <!-- FOLDER VIEW -->
+  <div id="folder-view">
+    <div class="fv-header">
+      <h2 id="fv-title">📁 フォルダ</h2>
+      <span class="fv-meta" id="fv-meta"></span>
+    </div>
+    <div class="fv-scroll"><div id="fv-items"></div></div>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div id="settings-view">
+    <div class="sv-header">
+      <h2>⚙ 設定</h2>
+      <p>APIキーとパスワードロックを設定できます。すべてのデータはこのブラウザのみに保存されます。</p>
+    </div>
+    <div class="sv-scroll">
+
+      <!-- Password -->
+      <div class="settings-block">
+        <div class="sb-head">
+          <span style="font-size:16px;">🔒</span>
+          <span class="sb-name">パスワードロック</span>
+          <span class="status-pill st-no" id="st-pw">未設定</span>
+        </div>
+        <div class="sb-body">
+          <p class="pw-hint">設定するとアプリ起動時にパスワード入力が必要になります。他の人が勝手に使えなくなります。</p>
+          <div class="pw-row">
+            <input class="key-inp" id="pw-new" type="password" placeholder="新しいパスワード（4文字以上）">
+            <input class="key-inp" id="pw-confirm" type="password" placeholder="もう一度入力">
+          </div>
+          <div class="pw-actions">
+            <button class="save-btn" style="flex:1" onclick="savePassword()">🔒 パスワードを設定</button>
+            <button class="danger-btn" id="pw-remove-btn" style="display:none" onclick="removePassword()">解除</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Claude -->
+      <div class="settings-block">
+        <div class="sb-head">
+          <div class="sb-dot" style="background:var(--claude)"></div>
+          <span class="sb-name">Claude (Anthropic)</span>
+          <span class="status-pill st-no" id="st-claude">未設定</span>
+        </div>
+        <div class="sb-body">
+          <div class="key-row">
+            <input class="key-inp" id="k-claude" type="password" placeholder="sk-ant-api03-...">
+            <button class="save-btn" onclick="saveKey('claude')">保存</button>
+          </div>
+          <div class="model-row" id="mr-claude"><span>キー設定後に最新モデルを自動取得します</span></div>
+          <div class="guide">
+            <div class="g-title">🔑 取得方法</div>
+            <div class="g-step"><div class="g-num">1</div><div class="g-text"><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> にアクセス</div></div>
+            <div class="g-step"><div class="g-num">2</div><div class="g-text">アカウント登録またはログイン</div></div>
+            <div class="g-step"><div class="g-num">3</div><div class="g-text">左メニュー「API Keys」→「Create Key」でキーを生成</div></div>
+            <div class="g-step"><div class="g-num">4</div><div class="g-text">「sk-ant-」から始まるキーをコピーして上に貼り付け「保存」</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OpenAI -->
+      <div class="settings-block">
+        <div class="sb-head">
+          <div class="sb-dot" style="background:var(--gpt)"></div>
+          <span class="sb-name">ChatGPT (OpenAI)</span>
+          <span class="status-pill st-no" id="st-gpt">未設定</span>
+        </div>
+        <div class="sb-body">
+          <div class="key-row">
+            <input class="key-inp" id="k-gpt" type="password" placeholder="sk-proj-...">
+            <button class="save-btn" onclick="saveKey('gpt')">保存</button>
+          </div>
+          <div class="model-row" id="mr-gpt"><span>キー設定後に最新モデルを自動取得します</span></div>
+          <div class="guide">
+            <div class="g-title">🔑 取得方法</div>
+            <div class="g-step"><div class="g-num">1</div><div class="g-text"><a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a> にアクセス</div></div>
+            <div class="g-step"><div class="g-num">2</div><div class="g-text">OpenAIアカウントでログイン（無料登録可）</div></div>
+            <div class="g-step"><div class="g-num">3</div><div class="g-text">「+ Create new secret key」をクリック → キーを生成</div></div>
+            <div class="g-step"><div class="g-num">4</div><div class="g-text">表示されたキーをコピー（再表示不可）して上に貼り付け「保存」</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gemini -->
+      <div class="settings-block">
+        <div class="sb-head">
+          <div class="sb-dot" style="background:var(--gemini)"></div>
+          <span class="sb-name">Gemini (Google)<span class="free-tag">無料枠あり</span></span>
+          <span class="status-pill st-no" id="st-gemini">未設定</span>
+        </div>
+        <div class="sb-body">
+          <div class="key-row">
+            <input class="key-inp" id="k-gemini" type="password" placeholder="AIzaSy...">
+            <button class="save-btn" onclick="saveKey('gemini')">保存</button>
+          </div>
+          <div class="model-row" id="mr-gemini"><span>キー設定後に最新モデルを自動取得します</span></div>
+          <div class="guide">
+            <div class="g-title">🔑 取得方法（無料！）</div>
+            <div class="g-step"><div class="g-num">1</div><div class="g-text"><a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com/app/apikey</a> にアクセス</div></div>
+            <div class="g-step"><div class="g-num">2</div><div class="g-text">Googleアカウントでログイン</div></div>
+            <div class="g-step"><div class="g-num">3</div><div class="g-text">「Create API key」→ プロジェクト選択（または新規作成）</div></div>
+            <div class="g-step"><div class="g-num">4</div><div class="g-text">「AIzaSy」から始まるキーをコピーして上に貼り付け「保存」<br><span style="color:var(--gpt);font-size:11px;">✓ 無料プランで十分使えます</span></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- New Folder Modal -->
+<div class="overlay" id="m-folder" onclick="if(event.target===this)closeM('m-folder')">
+  <div class="modal">
+    <h3>📁 新しいフォルダ</h3>
+    <p>フォルダ名を入力してください</p>
+    <input type="text" id="folder-name-inp" placeholder="例: 仕事の調査、学習メモ..." onkeydown="if(event.key==='Enter')createFolder()">
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeM('m-folder')">キャンセル</button>
+      <button class="mbtn ok" onclick="createFolder()">作成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Modal -->
+<div class="overlay" id="m-save" onclick="if(event.target===this)closeM('m-save')">
+  <div class="modal">
+    <h3>💾 フォルダに保存</h3>
+    <p>どのフォルダに保存しますか？</p>
+    <div id="save-folder-list" style="max-height:220px;overflow-y:auto;margin-bottom:14px;"></div>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeM('m-save')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="det-overlay" id="m-detail" onclick="if(event.target===this)closeM('m-detail')">
+  <div class="det-box">
+    <button class="det-close" onclick="closeM('m-detail')">✕</button>
+    <div class="det-title" id="d-q"></div>
+    <div id="d-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== STATE ===== */
+const S = {
+  keys: { claude: '', gpt: '', gemini: '' },
+  models: { claude: 'claude-sonnet-4-20250514', gpt: 'gpt-4o', gemini: 'gemini-2.0-flash' },
+  folders: [],
+  view: 'chat',
+  curFolder: null,
+  pending: null
+};
+const cache = {};
+
+/* ===== BOOT ===== */
+async function init() {
+  const k = localStorage.getItem('triai_keys'); if (k) Object.assign(S.keys, JSON.parse(k));
+  const m = localStorage.getItem('triai_models'); if (m) Object.assign(S.models, JSON.parse(m));
+  const f = localStorage.getItem('triai_folders'); if (f) S.folders = JSON.parse(f);
+  ['claude', 'gpt', 'gemini'].forEach(ai => {
+    if (S.keys[ai]) document.getElementById('k-' + ai).value = S.keys[ai];
+  });
+  checkLock();
+  updateStatuses(); renderFolders(); updateWarn(); updateBadges(); updateModelRows();
+  if (S.keys.claude || S.keys.gpt || S.keys.gemini) fetchAllModels();
+}
+
+/* ===== PASSWORD ===== */
+async function hashPw(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function checkLock() {
+  const stored = localStorage.getItem('triai_pw');
+  if (stored) {
+    document.getElementById('lock-screen').style.display = 'flex';
+    document.getElementById('st-pw').textContent = '設定済み ✓';
+    document.getElementById('st-pw').className = 'status-pill st-ok';
+    document.getElementById('pw-remove-btn').style.display = 'block';
+  }
+}
+
+async function unlock() {
+  const inp = document.getElementById('lock-inp');
+  const pw = inp.value;
+  if (!pw) return;
+  const h = await hashPw(pw);
+  const stored = localStorage.getItem('triai_pw');
+  if (h === stored) {
+    document.getElementById('lock-screen').style.display = 'none';
+    inp.value = '';
+  } else {
+    document.getElementById('lock-err').textContent = 'パスワードが違います';
+    inp.classList.add('shake');
+    setTimeout(() => inp.classList.remove('shake'), 400);
+    inp.value = '';
+  }
+}
+
+async function savePassword() {
+  const nw = document.getElementById('pw-new').value;
+  const cf = document.getElementById('pw-confirm').value;
+  if (!nw || nw.length < 4) { toast('4文字以上のパスワードを入力してください'); return; }
+  if (nw !== cf) { toast('パスワードが一致しません'); return; }
+  const h = await hashPw(nw);
+  localStorage.setItem('triai_pw', h);
+  document.getElementById('st-pw').textContent = '設定済み ✓';
+  document.getElementById('st-pw').className = 'status-pill st-ok';
+  document.getElementById('pw-remove-btn').style.display = 'block';
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-confirm').value = '';
+  toast('🔒 パスワードを設定しました');
+}
+
+function removePassword() {
+  if (!confirm('パスワードロックを解除しますか？')) return;
+  localStorage.removeItem('triai_pw');
+  document.getElementById('st-pw').textContent = '未設定';
+  document.getElementById('st-pw').className = 'status-pill st-no';
+  document.getElementById('pw-remove-btn').style.display = 'none';
+  toast('🔓 パスワードロックを解除しました');
+}
+
+/* ===== MODEL FETCH ===== */
+async function fetchAllModels() {
+  const results = await Promise.allSettled([
+    S.keys.claude ? fetchClaudeModels() : Promise.reject(),
+    S.keys.gpt ? fetchGPTModels() : Promise.reject(),
+    S.keys.gemini ? fetchGeminiModels() : Promise.reject()
+  ]);
+  localStorage.setItem('triai_models', JSON.stringify(S.models));
+  updateBadges(); updateModelRows();
+}
+
+async function fetchClaudeModels() {
+  const r = await fetch('https://api.anthropic.com/v1/models', {
+    headers: { 'x-api-key': S.keys.claude, 'anthropic-version': '2023-06-01' }
+  });
+  const d = await r.json();
+  if (!d.data) return;
+  // pick latest sonnet or claude-3-7 or highest
+  const models = d.data.map(m => m.id).filter(id => id.includes('claude'));
+  const sonnet = models.find(id => id.includes('sonnet') && !id.includes('instant'));
+  const opus = models.find(id => id.includes('opus'));
+  S.models.claude = sonnet || opus || models[0] || S.models.claude;
+}
+
+async function fetchGPTModels() {
+  const r = await fetch('https://api.openai.com/v1/models', {
+    headers: { 'Authorization': 'Bearer ' + S.keys.gpt }
+  });
+  const d = await r.json();
+  if (!d.data) return;
+  const gpt4o = d.data.map(m => m.id).filter(id => id.startsWith('gpt-4o') && !id.includes('mini') && !id.includes('audio') && !id.includes('realtime'));
+  // prefer gpt-4o, gpt-4o-2025-xx etc latest
+  gpt4o.sort((a, b) => b.localeCompare(a));
+  if (gpt4o[0]) S.models.gpt = gpt4o[0];
+}
+
+async function fetchGeminiModels() {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${S.keys.gemini}`);
+  const d = await r.json();
+  if (!d.models) return;
+  const flash = d.models.map(m => m.name.replace('models/', '')).filter(id => id.includes('gemini') && id.includes('flash') && !id.includes('lite') && !id.includes('8b'));
+  flash.sort((a, b) => b.localeCompare(a));
+  if (flash[0]) S.models.gemini = flash[0];
+}
+
+function updateBadges() {
+  document.getElementById('bt-claude').textContent = S.models.claude;
+  document.getElementById('bt-gpt').textContent = S.models.gpt;
+  document.getElementById('bt-gemini').textContent = S.models.gemini;
+}
+
+function updateModelRows() {
+  const rows = { claude: 'mr-claude', gpt: 'mr-gpt', gemini: 'mr-gemini' };
+  Object.entries(rows).forEach(([ai, id]) => {
+    const el = document.getElementById(id);
+    if (S.keys[ai]) {
+      el.innerHTML = `使用中: <span class="model-chip">${S.models[ai]}</span>`;
+    } else {
+      el.innerHTML = '<span>キー設定後に最新モデルを自動取得します</span>';
+    }
+  });
+}
+
+/* ===== API KEY ===== */
+async function saveKey(ai) {
+  const v = document.getElementById('k-' + ai).value.trim();
+  if (!v) { toast('キーを入力してください'); return; }
+  S.keys[ai] = v;
+  localStorage.setItem('triai_keys', JSON.stringify(S.keys));
+  updateStatuses(); updateWarn();
+  toast(ai + ' のAPIキーを保存しました ✓');
+  // fetch latest model for this AI
+  try {
+    if (ai === 'claude') await fetchClaudeModels();
+    else if (ai === 'gpt') await fetchGPTModels();
+    else if (ai === 'gemini') await fetchGeminiModels();
+    localStorage.setItem('triai_models', JSON.stringify(S.models));
+    updateBadges(); updateModelRows();
+    toast(ai + ' の最新モデルを取得しました: ' + S.models[ai]);
+  } catch(e) { /* use fallback */ }
+}
+
+function updateStatuses() {
+  [['claude', 'st-claude'], ['gpt', 'st-gpt'], ['gemini', 'st-gemini']].forEach(([ai, id]) => {
+    const el = document.getElementById(id);
+    if (S.keys[ai]) { el.textContent = '設定済み ✓'; el.className = 'status-pill st-ok'; }
+    else { el.textContent = '未設定'; el.className = 'status-pill st-no'; }
+  });
+}
+
+function updateWarn() {
+  const missing = ['claude', 'gpt', 'gemini'].filter(a => !S.keys[a]).map(a => a === 'claude' ? 'Claude' : a === 'gpt' ? 'GPT-4o' : 'Gemini');
+  const w = document.getElementById('key-warn');
+  w.textContent = missing.length === 3 ? '⚠ APIキー未設定 — 設定から追加してください' : missing.length ? missing.join(', ') + ' のキー未設定' : '';
+}
+
+/* ===== VIEWS ===== */
+function showChat() {
+  S.view = 'chat'; S.curFolder = null;
+  document.getElementById('chat-view').style.display = 'flex';
+  document.getElementById('folder-view').className = '';
+  document.getElementById('settings-view').className = '';
+  document.getElementById('settings-btn').classList.remove('active');
+  document.querySelectorAll('.folder-item').forEach(e => e.classList.remove('active'));
+}
+function showFolderView(id) {
+  S.view = 'folder'; S.curFolder = id;
+  const f = S.folders.find(x => x.id === id); if (!f) return;
+  document.getElementById('chat-view').style.display = 'none';
+  document.getElementById('folder-view').className = 'active';
+  document.getElementById('settings-view').className = '';
+  document.getElementById('settings-btn').classList.remove('active');
+  document.querySelectorAll('.folder-item').forEach(e => e.classList.remove('active'));
+  const el = document.getElementById('fi-' + id); if (el) el.classList.add('active');
+  document.getElementById('fv-title').textContent = f.icon + ' ' + f.name;
+  renderFolderItems(f);
+}
+function showSettings() {
+  S.view = 'settings';
+  document.getElementById('chat-view').style.display = 'none';
+  document.getElementById('folder-view').className = '';
+  document.getElementById('settings-view').className = 'active';
+  document.getElementById('settings-btn').classList.add('active');
+  document.querySelectorAll('.folder-item').forEach(e => e.classList.remove('active'));
+}
+
+/* ===== FOLDERS ===== */
+const ICONS = ['📁','⭐','💡','🔬','💼','🎨','📚','🌍','🎯','🧪','✨','🏠'];
+function renderFolders() {
+  const c = document.getElementById('folders-list'); c.innerHTML = '';
+  if (!S.folders.length) { c.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 10px;">フォルダなし</div>'; return; }
+  S.folders.forEach(f => {
+    const d = document.createElement('div');
+    d.className = 'folder-item' + (S.curFolder === f.id && S.view === 'folder' ? ' active' : '');
+    d.id = 'fi-' + f.id;
+    d.innerHTML = `<span class="f-icon">${f.icon}</span><span class="f-name">${esc(f.name)}</span><span class="f-count">${f.items.length}</span><button class="f-del" onclick="event.stopPropagation();delFolder('${f.id}')">✕</button>`;
+    d.addEventListener('click', () => showFolderView(f.id));
+    c.appendChild(d);
+  });
+}
+function openNewFolder() {
+  document.getElementById('folder-name-inp').value = '';
+  openM('m-folder');
+  setTimeout(() => document.getElementById('folder-name-inp').focus(), 80);
+}
+function createFolder() {
+  const name = document.getElementById('folder-name-inp').value.trim();
+  if (!name) return;
+  S.folders.push({ id: Date.now().toString(), name, icon: ICONS[Math.floor(Math.random() * ICONS.length)], items: [] });
+  saveFolders(); renderFolders(); closeM('m-folder');
+  toast('📁 フォルダ「' + name + '」を作成しました');
+}
+function delFolder(id) {
+  if (!confirm('このフォルダを削除しますか？')) return;
+  S.folders = S.folders.filter(f => f.id !== id);
+  saveFolders();
+  if (S.curFolder === id) showChat(); else renderFolders();
+  toast('フォルダを削除しました');
+}
+function saveFolders() { localStorage.setItem('triai_folders', JSON.stringify(S.folders)); }
+
+function renderFolderItems(f) {
+  const c = document.getElementById('fv-items');
+  document.getElementById('fv-meta').textContent = f.items.length + ' 件';
+  c.innerHTML = '';
+  if (!f.items.length) { c.innerHTML = '<div style="text-align:center;padding:56px;color:var(--text3);font-size:13px;">まだ保存されていません</div>'; return; }
+  f.items.forEach((item, i) => {
+    const d = document.createElement('div'); d.className = 'saved-card';
+    const date = new Date(item.savedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const preview = (item.synthesis || item.claudeAns || item.gptAns || item.geminiAns || '').slice(0, 130);
+    d.innerHTML = `<div class="sc-q">${esc(item.question)}</div><div class="sc-prev">${esc(preview)}</div>
+    <div class="sc-foot"><span class="sc-date">${date}</span>
+    <div class="sc-badges">${item.claudeAns ? '<span class="badge bc" style="font-size:9px;padding:2px 6px;">Claude</span>' : ''}${item.gptAns ? '<span class="badge bg2b" style="font-size:9px;padding:2px 6px;">GPT</span>' : ''}${item.geminiAns ? '<span class="badge bge" style="font-size:9px;padding:2px 6px;">Gemini</span>' : ''}</div>
+    <button class="sc-del" onclick="event.stopPropagation();delItem('${f.id}',${i})">✕</button></div>`;
+    d.addEventListener('click', () => showDetail(item));
+    c.appendChild(d);
+  });
+}
+function delItem(fid, idx) {
+  const f = S.folders.find(x => x.id === fid); if (!f) return;
+  f.items.splice(idx, 1); saveFolders(); renderFolderItems(f); renderFolders(); toast('削除しました');
+}
+
+function showSaveModal(entry) {
+  S.pending = entry;
+  const list = document.getElementById('save-folder-list'); list.innerHTML = '';
+  if (!S.folders.length) { list.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:8px;">サイドバーの「＋」でフォルダを作成してください</div>'; openM('m-save'); return; }
+  S.folders.forEach(f => {
+    const d = document.createElement('div'); d.className = 'fdd-item';
+    d.innerHTML = `<span>${f.icon}</span><span>${esc(f.name)}</span><span class="fdd-count">${f.items.length}件</span>`;
+    d.onclick = () => { saveToFolder(f.id); closeM('m-save'); };
+    list.appendChild(d);
+  });
+  openM('m-save');
+}
+function saveToFolder(fid) {
+  if (!S.pending) return;
+  const f = S.folders.find(x => x.id === fid); if (!f) return;
+  f.items.unshift({ ...S.pending, savedAt: Date.now() });
+  saveFolders(); renderFolders(); toast('「' + f.name + '」に保存しました ✓');
+  if (S.curFolder === fid) renderFolderItems(f);
+  S.pending = null;
+}
+
+function showDetail(item) {
+  document.getElementById('d-q').textContent = item.question;
+  const panels = [
+    { name: 'Claude', color: 'var(--claude)', ans: item.claudeAns, model: item.modelClaude || S.models.claude },
+    { name: 'GPT-4o', color: 'var(--gpt)', ans: item.gptAns, model: item.modelGpt || S.models.gpt },
+    { name: 'Gemini', color: 'var(--gemini)', ans: item.geminiAns, model: item.modelGemini || S.models.gemini }
+  ];
+  let html = '<div class="det-grid">';
+  panels.forEach(p => {
+    html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+      <div style="padding:9px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;">
+        <span style="width:7px;height:7px;border-radius:50%;background:${p.color};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:12px;font-weight:500;color:${p.color}">${p.name}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:monospace;margin-left:auto;">${p.model}</span>
+      </div>
+      <div style="padding:12px;font-size:12.5px;line-height:1.75;color:var(--text2);white-space:pre-wrap;">${esc(p.ans || '—')}</div>
+    </div>`;
+  });
+  html += '</div>';
+  if (item.synthesis) {
+    html += `<div style="background:var(--synth-bg);border:1px solid rgba(245,163,26,.3);border-radius:10px;padding:14px;">
+      <div style="font-size:10px;font-weight:500;color:var(--synth);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">✦ 最適解</div>
+      <div style="font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap;">${esc(item.synthesis)}</div>
+    </div>`;
+  }
+  document.getElementById('d-content').innerHTML = html;
+  openM('m-detail');
+}
+
+/* ===== CHAT ===== */
+function resize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+function useEx(el) { document.getElementById('main-input').value = el.textContent; send(); }
+
+async function send() {
+  const inp = document.getElementById('main-input');
+  const q = inp.value.trim(); if (!q) return;
+  if (!S.keys.claude && !S.keys.gpt && !S.keys.gemini) { toast('⚙ まずAPIキーを設定してください'); showSettings(); return; }
+  inp.value = ''; inp.style.height = 'auto';
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('empty-state').style.display = 'none';
+  const id = Date.now();
+  const el = buildEntry(id, q);
+  document.getElementById('conversations').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+  const res = { question: q, claudeAns: '', gptAns: '', geminiAns: '', synthesis: '', modelClaude: S.models.claude, modelGpt: S.models.gpt, modelGemini: S.models.gemini };
+  const [cr, gr, mr] = await Promise.allSettled([
+    S.keys.claude ? apiClaude(q) : Promise.reject(new Error('キー未設定')),
+    S.keys.gpt ? apiGPT(q) : Promise.reject(new Error('キー未設定')),
+    S.keys.gemini ? apiGemini(q) : Promise.reject(new Error('キー未設定'))
+  ]);
+  setPanel(id, 'claude', cr); setPanel(id, 'gpt', gr); setPanel(id, 'gemini', mr);
+  if (cr.status === 'fulfilled') res.claudeAns = cr.value;
+  if (gr.status === 'fulfilled') res.gptAns = gr.value;
+  if (mr.status === 'fulfilled') res.geminiAns = mr.value;
+
+  const answered = [res.claudeAns, res.gptAns, res.geminiAns].filter(Boolean);
+  if (answered.length >= 2 && S.keys.claude) {
+    setSynthShow(id);
+    try {
+      const s = await apiSynth(q, res.claudeAns, res.gptAns, res.geminiAns);
+      res.synthesis = s; setSynthText(id, s);
+    } catch(e) { setSynthText(id, '統合エラー: ' + e.message, true); }
+  } else if (answered.length === 1) { setSynthText(id, answered[0]); }
+
+  cache[id] = res;
+  const actEl = document.getElementById('act-' + id); if (actEl) actEl.style.display = 'flex';
+  document.getElementById('send-btn').disabled = false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function buildEntry(id, q) {
+  const d = document.createElement('div'); d.className = 'conv-entry'; d.id = 'e-' + id;
+  const mk = (ai, color, name, model) => `
+    <div class="ai-card">
+      <div class="ac-header">
+        <div class="ac-dot" style="background:${color}"></div>
+        <span class="ac-name" style="color:${color}">${name}</span>
+        <span class="ac-model-tag">${model}</span>
+      </div>
+      <div class="ac-body thinking" id="p-${ai}-${id}">
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>`;
+  d.innerHTML = `
+    <div class="conv-q"><div class="conv-q-bubble">${esc(q)}</div></div>
+    <div class="grid3">
+      ${mk('claude','var(--claude)','Claude', S.models.claude)}
+      ${mk('gpt','var(--gpt)','GPT-4o', S.models.gpt)}
+      ${mk('gemini','var(--gemini)','Gemini', S.models.gemini)}
+    </div>
+    <div class="synth-card" id="sc-${id}">
+      <div class="synth-head"><span class="synth-star">✦</span><span class="synth-label">最適解 — 3つのAIを統合</span></div>
+      <div class="synth-body" id="sb-${id}"><div class="dots"><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="conv-actions" id="act-${id}">
+      <button class="act-btn" onclick="copyRes(${id})">📋 コピー</button>
+      <button class="act-btn" onclick="showSaveModal(cache[${id}])">💾 フォルダに保存 ↗</button>
+    </div>`;
+  return d;
+}
+
+function setPanel(id, ai, r) {
+  const el = document.getElementById('p-' + ai + '-' + id); if (!el) return;
+  el.classList.remove('thinking');
+  if (r.status === 'fulfilled') { el.textContent = r.value; }
+  else { const m = r.reason?.message || 'エラー'; el.innerHTML = `<span class="ac-err">${m === 'キー未設定' ? 'キー未設定 — 設定から追加してください' : 'エラー: ' + esc(m.slice(0, 100))}</span>`; }
+}
+function setSynthShow(id) { const el = document.getElementById('sc-' + id); if (el) el.style.display = 'block'; }
+function setSynthText(id, t, err = false) {
+  const sc = document.getElementById('sc-' + id); if (!sc) return;
+  sc.style.display = 'block';
+  const sb = document.getElementById('sb-' + id);
+  if (err) sb.innerHTML = `<span class="ac-err">${esc(t)}</span>`; else sb.textContent = t;
+}
+function copyRes(id) {
+  const e = cache[id]; if (!e) return;
+  const txt = e.synthesis || e.claudeAns || e.gptAns || e.geminiAns || '';
+  navigator.clipboard.writeText(txt).then(() => toast('📋 コピーしました')).catch(() => toast('コピーに失敗しました'));
+}
+
+/* ===== APIs ===== */
+async function apiClaude(q) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': S.keys.claude, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: S.models.claude, max_tokens: 1024, messages: [{ role: 'user', content: q }] })
+  });
+  const d = await r.json(); if (d.error) throw new Error(d.error.message);
+  return d.content[0].text;
+}
+async function apiGPT(q) {
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + S.keys.gpt },
+    body: JSON.stringify({ model: S.models.gpt, max_tokens: 1024, messages: [{ role: 'user', content: q }] })
+  });
+  const d = await r.json(); if (d.error) throw new Error(d.error.message);
+  return d.choices[0].message.content;
+}
+async function apiGemini(q) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.models.gemini}:generateContent?key=${S.keys.gemini}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: q }] }] })
+  });
+  const d = await r.json(); if (d.error) throw new Error(d.error.message);
+  return d.candidates[0].content.parts[0].text;
+}
+async function apiSynth(q, c, g, m) {
+  const parts = [];
+  if (c) parts.push(`【Claude (${S.models.claude})】\n${c}`);
+  if (g) parts.push(`【ChatGPT (${S.models.gpt})】\n${g}`);
+  if (m) parts.push(`【Gemini (${S.models.gemini})】\n${m}`);
+  const prompt = `以下の質問に対して複数のAIが回答しました。各回答の優れた点を統合し、最も正確・有用な「最適解」を日本語で提供してください（200〜300字程度）。\n\n質問: ${q}\n\n${parts.join('\n\n')}`;
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': S.keys.claude, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: S.models.claude, max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
+  });
+  const d = await r.json(); if (d.error) throw new Error(d.error.message);
+  return d.content[0].text;
+}
+
+/* ===== UTILS ===== */
+function openM(id) { document.getElementById(id).classList.add('open'); }
+function closeM(id) { document.getElementById(id).classList.remove('open'); }
+function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+let tt;
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+init();
+</script>
+</body>
+</html>
